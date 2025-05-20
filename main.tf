@@ -18,6 +18,14 @@ resource "aws_vpc_security_group_ingress_rule" "https" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  security_group_id = aws_security_group.web_sg.id
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
 resource "aws_vpc_security_group_egress_rule" "all_outbound" {
   security_group_id = aws_security_group.web_sg.id
   ip_protocol       = "-1"
@@ -33,6 +41,8 @@ resource "aws_instance" "static_site" {
     volume_type = "gp3"
     volume_size = 8
   }
+
+  user_data = file("${path.module}/nginx_script.sh")
 
   tags = {
     Name = "My Static Site"

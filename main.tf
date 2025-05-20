@@ -48,3 +48,49 @@ resource "aws_instance" "static_site" {
     Name = "My Static Site"
   }
 }
+
+resource "aws_eip" "static_site_eip" {
+  domain = "vpc"
+  tags = {
+    Name = "zerocarb-eip"
+  }
+}
+
+resource "aws_eip_association" "eip_assoc" {
+  instance_id   = aws_instance.static_site.id
+  allocation_id = aws_eip.static_site_eip.id
+}
+
+resource "aws_route53_zone" "primary" {
+  name = "zerocarb.pl"
+
+  tags = {
+    Name = "zerocarb-pl-zone"
+  }
+}
+
+resource "aws_route53_record" "root" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = "zerocarb.pl"
+  type    = "A"
+  ttl     = "300"
+  records = [aws_eip.static_site_eip.public_ip]
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = "www.zerocarb.pl"
+  type    = "A"
+  ttl     = "300"
+  records = [aws_eip.static_site_eip.public_ip]
+}
+
+output "nameservers" {
+  description = "Nameservers"
+  value       = aws_route53_zone.primary.name_servers
+}
+
+output "elastic_ip" {
+  description = "Elastic IP address assigned to the instance"
+  value       = aws_eip.static_site_eip.public_ip
+}

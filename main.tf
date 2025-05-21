@@ -36,23 +36,33 @@ resource "aws_instance" "static_site" {
   ami                    = var.ami_id
   instance_type          = "t3.micro"
   vpc_security_group_ids = [aws_security_group.web_sg.id]
+  key_name               = aws_key_pair.zerocarb_key.key_name
 
   root_block_device {
     volume_type = "gp3"
     volume_size = 8
   }
 
-  user_data = file("${path.module}/nginx_script.sh")
+  #  user_data = file("${path.module}/nginx_script.sh")
 
   tags = {
     Name = "My Static Site"
   }
 }
 
+resource "aws_key_pair" "zerocarb_key" {
+  key_name   = "zerocarb-key"
+  public_key = file("${path.module}/zerocarb.pub")
+}
+
 resource "aws_eip" "static_site_eip" {
   domain = "vpc"
   tags = {
     Name = "zerocarb-eip"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -66,6 +76,10 @@ resource "aws_route53_zone" "primary" {
 
   tags = {
     Name = "zerocarb-pl-zone"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 

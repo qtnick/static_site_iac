@@ -1,0 +1,56 @@
+---
+- name: Configure zerocarb webserver
+  hosts: webservers
+  become: yes
+
+
+  tasks:
+    - name: Update system packages
+      dnf:
+        name: "*"
+        state: latest
+        update_only: yes
+
+    - name: Install nginx
+      dnf:
+        name: nginx
+        state: present
+
+    - name: Create website content
+      copy:
+        content: |
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Zero Carb</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <link rel="stylesheet" href="./style.css">
+            </head>
+            <body>
+              <header><a href="index.html" class="visited-link">Zero Carb</a></header>
+              <hr>
+              <h2>About me</h2>
+              <p>
+                Zero Carb, psoriasis and life with purpose.
+              </p>
+            </body>
+          </html>
+        dest: /usr/share/nginx/html/index.html
+        owner: nginx
+        group: nginx
+        mode: '0644'
+
+    - name: Set correct permissions
+      file:
+        path: /usr/share/nginx/html
+        owner: nginx
+        group: nginx
+        mode: '0755'
+        recurse: yes
+
+    - name: Enable and start nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes

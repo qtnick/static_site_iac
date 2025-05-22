@@ -1,2 +1,2 @@
 # static_site_iac
-Place for my static site IaC code.
+Terraform and Ansible config files for static site on AWS EC2 instance. 

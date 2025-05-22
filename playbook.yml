@@ -13,44 +13,60 @@
 
     - name: Install nginx
       dnf:
-        name: nginx
+        name:
+          - nginx
+          - certbot
+          - python3-certbot-nginx
+          - cronie
         state: present
 
-    - name: Create website content
+    - name: create initial nginx config (http only)
       copy:
         content: |
-          <!doctype html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <title>Zero Carb</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <link rel="stylesheet" href="./style.css">
-            </head>
-            <body>
-              <header><a href="index.html" class="visited-link">Zero Carb</a></header>
-              <hr>
-              <h2>About me</h2>
-              <p>
-                Zero Carb, psoriasis and life with purpose.
-              </p>
-            </body>
-          </html>
-        dest: /usr/share/nginx/html/index.html
-        owner: nginx
-        group: nginx
+          server {
+              listen 80;
+              server_name zerocarb.pl www.zerocarb.pl;
+              
+              root /usr/share/nginx/html;
+              index index.html;
+              
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+        dest: /etc/nginx/conf.d/zerocarb.conf
+        owner: root
+        group: root
         mode: '0644'
-
-    - name: Set correct permissions
-      file:
-        path: /usr/share/nginx/html
-        owner: nginx
-        group: nginx
-        mode: '0755'
-        recurse: yes
+      notify:
+        - restart nginx
 
     - name: Enable and start nginx
       systemd:
         name: nginx
         state: started
         enabled: yes
+
+    - name: Obtain SSL certificate with Certbot
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email jakubkutnik@protonmail.com
+        --domains zerocarb.pl,www.zerocarb.pl
+      args:
+        creates: /etc/letsencrypt/live/zerocarb.pl/fullchain.pem
+
+    - name: Set up auto-renewal for SSL certificates
+      cron:
+        name: "Certbot renewal"
+        job: "certbot renew --quiet --no-self-upgrade"
+        hour: "3"
+        minute: "30"
+        weekday: "1"
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

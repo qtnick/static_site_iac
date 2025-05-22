@@ -11,7 +11,7 @@
         state: latest
         update_only: yes
 
-    - name: Install nginx
+    - name: Install required packages 
       dnf:
         name:
           - nginx
@@ -20,7 +20,15 @@
           - cronie
         state: present
 
-    - name: create initial nginx config (http only)
+    - name: Ensure web directory exists with correct permissions
+      file:
+        path: /usr/share/nginx/html
+        state: directory
+        owner: nginx
+        group: nginx
+        mode: '0755'
+
+    - name: Create initial nginx config (http only)
       copy:
         content: |
           server {
@@ -38,10 +46,8 @@
         owner: root
         group: root
         mode: '0644'
-      notify:
-        - restart nginx
 
-    - name: Enable and start nginx
+    - name: Start nginx
       systemd:
         name: nginx
         state: started
@@ -49,13 +55,45 @@
 
     - name: Obtain SSL certificate with Certbot
       command: >
-        certbot --nginx
+        certbot certonly
+        --webroot
+        --webroot-path=/usr/share/nginx/html
         --non-interactive
         --agree-tos
         --email jakubkutnik@protonmail.com
         --domains zerocarb.pl,www.zerocarb.pl
       args:
         creates: /etc/letsencrypt/live/zerocarb.pl/fullchain.pem
+
+    - name: Create final SSL nginx config
+      copy:
+        content: |
+          server {
+            listen 80;
+            server_name zerocarb.pl www.zerocarb.pl;
+            return 301 https://$host$request_uri;
+          }
+
+          server {
+            listen 443 ssl;
+            server_name zerocarb.pl www.zerocarb.pl;
+
+            ssl_certificate /etc/letsencrypt/live/zerocarb.pl/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/zerocarb.pl/privkey.pem;
+
+            root /usr/share/nginx/html;
+            index index.html;
+
+            location / {
+              try_files $uri $uri/ =404;
+            }
+          }
+        dest: /etc/nginx/conf.d/zerocarb.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - restart nginx
 
     - name: Set up auto-renewal for SSL certificates
       cron:
